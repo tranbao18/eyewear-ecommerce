@@ -1,0 +1,187 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Product;
+use App\Models\ProductVariant;
+use App\Models\Coupon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+
+class OrderController extends Controller
+{
+    public function store(Request $request)
+    {
+        $request->validate([
+            'customer_name' => 'required|string|max:255',
+            'customer_phone' => 'required|string|max:20',
+            'customer_email' => 'required|email|max:255',
+            'province' => 'required|string|max:255',
+            'district' => 'required|string|max:255',
+            'ward' => 'required|string|max:255',
+            'specific_address' => 'required|string|max:500',
+            'coupon_code' => 'nullable|string',
+            'frontend_total' => 'required|numeric',
+            'items' => 'required|array|min:1',
+            'items.*.productId' => 'required|exists:products,id',
+            'items.*.variantId' => 'nullable|exists:product_variants,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'save_address' => 'boolean'
+        ]);
+
+        $user = Auth::guard('sanctum')->user();
+
+        // 1. Calculate actual DB total
+        $dbSubTotal = 0;
+        $orderItemsData = [];
+
+        foreach ($request->items as $item) {
+            $product = Product::findOrFail($item['productId']);
+            $unitPrice = $product->price;
+
+            if (!empty($item['variantId'])) {
+                $variant = ProductVariant::findOrFail($item['variantId']);
+                // Ensure variant belongs to product
+                if ($variant->product_id != $product->id) {
+                    return response()->json(['message' => 'Dữ liệu sản phẩm không hợp lệ.'], 400);
+                }
+                $unitPrice += $variant->price_adjustment;
+            }
+
+            $lineTotal = $unitPrice * $item['quantity'];
+            $dbSubTotal += $lineTotal;
+
+            $orderItemsData[] = [
+                'product_id' => $product->id,
+                'product_variant_id' => $item['variantId'] ?? null,
+                'quantity' => $item['quantity'],
+                'price' => $unitPrice,
+            ];
+        }
+
+        // 2. Validate Coupon
+        $discountAmount = 0;
+        $coupon = null;
+        if ($request->coupon_code) {
+            $coupon = Coupon::where('code', $request->coupon_code)->first();
+            if ($coupon) {
+                $validation = $coupon->isValid($dbSubTotal);
+                if (!$validation['valid']) {
+                    return response()->json(['message' => $validation['message']], 400);
+                }
+                $discountAmount = $coupon->calculateDiscount($dbSubTotal);
+            }
+        }
+
+        $dbTotal = max(0, $dbSubTotal - $discountAmount);
+
+        // 3. Compare with frontend total (allowing small float precision differences, e.g. < 1.0)
+        if (abs($dbTotal - $request->frontend_total) > 1.0) {
+            return response()->json([
+                'message' => 'Dữ liệu giá đã thay đổi hoặc không hợp lệ. Vui lòng tải lại trang.',
+                'db_total' => $dbTotal,
+                'frontend_total' => $request->frontend_total
+            ], 400);
+        }
+
+        DB::beginTransaction();
+        try {
+            // 4. Create Order
+            $shippingAddress = $request->specific_address . ', ' . $request->ward . ', ' . $request->district . ', ' . $request->province;
+
+            $order = Order::create([
+                'user_id' => $user ? $user->id : null,
+                'total_amount' => $dbTotal,
+                'status' => 'pending',
+                'payment_method' => 'cod',
+                'customer_name' => $request->customer_name,
+                'customer_phone' => $request->customer_phone,
+                'customer_email' => $request->customer_email,
+                'province' => $request->province,
+                'district' => $request->district,
+                'ward' => $request->ward,
+                'specific_address' => $request->specific_address,
+                'shipping_address' => $shippingAddress, // full address legacy
+                'coupon_code' => $coupon ? $coupon->code : null,
+                'discount_amount' => $discountAmount,
+            ]);
+
+            // 5. Create Order Items
+            foreach ($orderItemsData as $itemData) {
+                $order->items()->create($itemData);
+            }
+
+            // 6. Update Coupon usage
+            if ($coupon) {
+                $coupon->increment('used_count');
+            }
+
+            // 7. Save address to user if requested
+            if ($user && $request->save_address) {
+                $user->update([
+                    'phone' => $request->customer_phone,
+                    'province' => $request->province,
+                    'district' => $request->district,
+                    'ward' => $request->ward,
+                    'specific_address' => $request->specific_address,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Đặt hàng thành công!',
+                'order_id' => $order->id
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Có lỗi xảy ra trong quá trình đặt hàng: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function show($id)
+    {
+        $order = Order::with(['items.product', 'items.variant.attributeValues.attribute'])->findOrFail($id);
+        
+        $subTotal = $order->total_amount + $order->discount_amount;
+        
+        $formattedOrder = [
+            'id' => $order->id,
+            'status' => $order->status,
+            'total_amount' => $order->total_amount,
+            'sub_total' => $subTotal,
+            'discount_amount' => $order->discount_amount,
+            'coupon_code' => $order->coupon_code,
+            'shipping_address' => $order->shipping_address,
+            'customer_name' => $order->customer_name,
+            'customer_phone' => $order->customer_phone,
+            'customer_email' => $order->customer_email,
+            'created_at' => $order->created_at,
+            'items' => $order->items->map(function ($item) {
+                $variantName = '';
+                if ($item->variant) {
+                    $values = $item->variant->attributeValues->map(function ($val) {
+                        return $val->value;
+                    })->implode(' / ');
+                    $variantName = $values;
+                }
+
+                return [
+                    'id' => $item->id,
+                    'product_name' => $item->product ? $item->product->name : 'Sản phẩm đã xóa',
+                    'variant_name' => $variantName,
+                    'quantity' => $item->quantity,
+                    'price' => $item->price,
+                    'image' => $item->product ? $item->product->image_url : null,
+                ];
+            })
+        ];
+
+        return response()->json($formattedOrder);
+    }
+}
