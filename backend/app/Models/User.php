@@ -14,7 +14,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'first_name', 'last_name', 'avatar', 'phone', 'province', 'district', 'ward', 'specific_address', 'email', 'password', 'role', 'provider', 'provider_id', 'provider_token'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {

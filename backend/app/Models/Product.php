@@ -16,8 +16,14 @@ class Product extends Model
         'slug',
         'sku',
         'description',
-        'price', 'stock_quantity', 
+        'price', 'sale_price', 'sale_price_starts_at', 'sale_price_ends_at',
+        'stock_quantity', 
         'image_url', 'is_active'
+    ];
+
+    protected $casts = [
+        'sale_price_starts_at' => 'datetime',
+        'sale_price_ends_at' => 'datetime',
     ];
 
     public function category()

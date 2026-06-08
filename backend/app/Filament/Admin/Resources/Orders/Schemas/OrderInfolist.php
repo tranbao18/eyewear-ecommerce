@@ -29,6 +29,32 @@ class OrderInfolist
                 TextEntry::make('updated_at')
                     ->dateTime()
                     ->placeholder('-'),
+                \Filament\Schemas\Components\Section::make('Order Items')
+                    ->schema([
+                        \Filament\Infolists\Components\RepeatableEntry::make('items')
+                            ->schema([
+                                \Filament\Infolists\Components\ImageEntry::make('product.image_url')
+                                    ->label('Hình ảnh')
+                                    ->disk('public')
+                                    ->size(50)
+                                    ->defaultImageUrl(url('/placeholder.png')),
+                                TextEntry::make('product.name')
+                                    ->label('Sản phẩm'),
+                                TextEntry::make('variant_name')
+                                    ->label('Biến thể')
+                                    ->placeholder('-'),
+                                TextEntry::make('product.sale_price')
+                                    ->label('Giá khuyến mãi')
+                                    ->money('VND')
+                                    ->placeholder('-'),
+                                TextEntry::make('quantity')
+                                    ->label('Số lượng'),
+                                TextEntry::make('price')
+                                    ->label('Đơn giá (Lúc mua)')
+                                    ->money('VND'),
+                            ])
+                            ->columns(5)
+                    ])
             ]);
     }
 }

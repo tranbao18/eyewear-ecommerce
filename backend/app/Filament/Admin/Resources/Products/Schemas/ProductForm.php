@@ -8,6 +8,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Schemas\Schema;
 
 class ProductForm
@@ -34,9 +35,18 @@ class ProductForm
                 Textarea::make('description')
                     ->columnSpanFull(),
                 TextInput::make('price')
+                    ->label('Giá gốc')
                     ->required()
                     ->numeric()
                     ->prefix('$'),
+                TextInput::make('sale_price')
+                    ->label('Giá khuyến mãi')
+                    ->numeric()
+                    ->prefix('$'),
+                DateTimePicker::make('sale_price_starts_at')
+                    ->label('Thời gian bắt đầu KM'),
+                DateTimePicker::make('sale_price_ends_at')
+                    ->label('Thời gian kết thúc KM'),
                 TextInput::make('stock_quantity')
                     ->required()
                     ->numeric()

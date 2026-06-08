@@ -21,8 +21,15 @@ class OrdersTable
                 TextColumn::make('total_amount')
                     ->numeric()
                     ->sortable(),
-                TextColumn::make('status')
-                    ->badge(),
+                \Filament\Tables\Columns\SelectColumn::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'processing' => 'Processing',
+                        'shipped' => 'Shipped',
+                        'completed' => 'Completed',
+                        'cancelled' => 'Cancelled',
+                    ])
+                    ->sortable(),
                 TextColumn::make('payment_method')
                     ->searchable(),
                 TextColumn::make('customer_name')
@@ -42,8 +49,9 @@ class OrdersTable
                 //
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+                \Filament\Actions\ViewAction::make(),
+                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DeleteAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

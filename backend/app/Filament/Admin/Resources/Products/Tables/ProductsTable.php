@@ -16,7 +16,7 @@ class ProductsTable
     {
         return $table
         ->columns([
-                ImageColumn::make('image_url'),
+                ImageColumn::make('image_url')->disk('public'),
                 TextColumn::make('category.name')
                     ->sortable()
                     ->searchable(),
@@ -48,7 +48,8 @@ class ProductsTable
                 //
             ])
             ->recordActions([
-                EditAction::make(),
+                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DeleteAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

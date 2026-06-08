@@ -29,6 +29,7 @@ class OrderController extends Controller
             'items' => 'required|array|min:1',
             'items.*.productId' => 'required|exists:products,id',
             'items.*.variantId' => 'nullable|exists:product_variants,id',
+            'items.*.variant_name' => 'nullable|string',
             'items.*.quantity' => 'required|integer|min:1',
             'save_address' => 'boolean'
         ]);
@@ -41,7 +42,13 @@ class OrderController extends Controller
 
         foreach ($request->items as $item) {
             $product = Product::findOrFail($item['productId']);
-            $unitPrice = $product->price;
+            
+            // Use sale price if active
+            $now = now();
+            $hasSale = $product->sale_price 
+                && (!$product->sale_price_starts_at || $now->gte($product->sale_price_starts_at))
+                && (!$product->sale_price_ends_at || $now->lte($product->sale_price_ends_at));
+            $unitPrice = $hasSale ? $product->sale_price : $product->price;
 
             if (!empty($item['variantId'])) {
                 $variant = ProductVariant::findOrFail($item['variantId']);
@@ -58,6 +65,7 @@ class OrderController extends Controller
             $orderItemsData[] = [
                 'product_id' => $product->id,
                 'product_variant_id' => $item['variantId'] ?? null,
+                'variant_name' => $item['variant_name'] ?? null,
                 'quantity' => $item['quantity'],
                 'price' => $unitPrice,
             ];
@@ -110,9 +118,23 @@ class OrderController extends Controller
                 'discount_amount' => $discountAmount,
             ]);
 
-            // 5. Create Order Items
+            // 5. Create Order Items and decrease stock
             foreach ($orderItemsData as $itemData) {
                 $order->items()->create($itemData);
+
+                // Decrease product stock
+                $product = Product::find($itemData['product_id']);
+                if ($product) {
+                    $product->decrement('stock_quantity', $itemData['quantity']);
+                }
+
+                // Decrease variant stock
+                if (!empty($itemData['product_variant_id'])) {
+                    $variant = ProductVariant::find($itemData['product_variant_id']);
+                    if ($variant) {
+                        $variant->decrement('stock_quantity', $itemData['quantity']);
+                    }
+                }
             }
 
             // 6. Update Coupon usage
@@ -163,8 +185,8 @@ class OrderController extends Controller
             'customer_email' => $order->customer_email,
             'created_at' => $order->created_at,
             'items' => $order->items->map(function ($item) {
-                $variantName = '';
-                if ($item->variant) {
+                $variantName = $item->variant_name;
+                if (!$variantName && $item->variant) {
                     $values = $item->variant->attributeValues->map(function ($val) {
                         return $val->value;
                     })->implode(' / ');
@@ -183,5 +205,36 @@ class OrderController extends Controller
         ];
 
         return response()->json($formattedOrder);
+    }
+
+    public function getUserOrders(Request $request)
+    {
+        $orders = Order::with(['items.product', 'items.variant.attributeValues.attribute'])
+            ->where('user_id', $request->user()->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $formattedOrders = $orders->map(function ($order) {
+            $subTotal = $order->total_amount + $order->discount_amount;
+            return [
+                'id' => $order->id,
+                'status' => $order->status,
+                'total_amount' => $order->total_amount,
+                'sub_total' => $subTotal,
+                'discount_amount' => $order->discount_amount,
+                'coupon_code' => $order->coupon_code,
+                'shipping_address' => $order->shipping_address,
+                'created_at' => $order->created_at,
+                'items_count' => $order->items->count(),
+                'first_item_image' => $order->items->first() && $order->items->first()->product ? $order->items->first()->product->image_url : null,
+                'first_item_name' => $order->items->first() && $order->items->first()->product ? $order->items->first()->product->name : null,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $formattedOrders,
+            'message' => 'Lấy danh sách đơn hàng thành công',
+        ]);
     }
 }

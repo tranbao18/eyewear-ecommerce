@@ -85,6 +85,7 @@ class CouponResource extends Resource
             ])
             ->recordActions([
                 \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DeleteAction::make(),
             ])
             ->toolbarActions([
                 \Filament\Actions\BulkActionGroup::make([
