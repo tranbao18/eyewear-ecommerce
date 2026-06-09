@@ -11,6 +11,11 @@ use App\Models\ProductVariant;
 use App\Models\Coupon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\OrderPlacedCustomerMail;
+use App\Mail\OrderPlacedAdminMail;
+use App\Models\User;
+use App\Notifications\NewOrderNotification;
 
 class OrderController extends Controller
 {
@@ -155,6 +160,26 @@ class OrderController extends Controller
 
             DB::commit();
 
+            // Send notifications and emails
+            try {
+                $admins = User::where('role', 'admin')->get();
+
+                // Database Notification cho Filament Admin Panel (chạy đồng bộ)
+                foreach ($admins as $admin) {
+                    $admin->notify(new NewOrderNotification($order));
+                }
+
+                // Email cho khách hàng
+                Mail::to($order->customer_email)->queue(new OrderPlacedCustomerMail($order));
+
+                // Email cho admin
+                foreach ($admins as $admin) {
+                    Mail::to($admin->email)->queue(new OrderPlacedAdminMail($order));
+                }
+            } catch (\Exception $e) {
+                \Log::error('Lỗi khi gửi thông báo đơn hàng: ' . $e->getMessage());
+            }
+
             return response()->json([
                 'message' => 'Đặt hàng thành công!',
                 'order_id' => $order->id
@@ -235,6 +260,33 @@ class OrderController extends Controller
             'success' => true,
             'data' => $formattedOrders,
             'message' => 'Lấy danh sách đơn hàng thành công',
+        ]);
+    }
+
+    public function cancel(Request $request, $id)
+    {
+        $order = Order::findOrFail($id);
+
+        if ($order->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Không có quyền truy cập.'], 403);
+        }
+
+        if ($order->status !== 'pending') {
+            return response()->json(['message' => 'Chỉ có thể hủy đơn hàng đang chờ xử lý.'], 400);
+        }
+
+        $order->status = 'cancelled';
+        $order->save();
+
+        try {
+            Mail::to($order->customer_email)->queue(new \App\Mail\OrderCancelledMail($order));
+        } catch (\Exception $e) {
+            \Log::error('Lỗi khi gửi email hủy đơn hàng: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã hủy đơn hàng thành công.',
         ]);
     }
 }

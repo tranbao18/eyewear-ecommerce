@@ -20,6 +20,10 @@ class CategoryForm
                 TextInput::make('slug')
                     ->required()
                     ->unique(ignoreRecord: true),
+                \Filament\Forms\Components\Toggle::make('is_active')
+                    ->label('Hoạt động')
+                    ->default(true)
+                    ->required(),
                 FileUpload::make('image')
                     ->image(),
                 Textarea::make('description')

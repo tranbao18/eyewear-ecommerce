@@ -16,10 +16,34 @@ Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{slug}', [ProductController::class, 'show']);
 
 Route::get('/categories', function() {
-    return response()->json(['data' => \App\Models\Category::all()]);
+    return response()->json(['data' => \App\Models\Category::where('is_active', true)->get()]);
 });
 Route::get('/brands', function() {
     return response()->json(['data' => \App\Models\Brand::all()]);
+});
+
+Route::get('/test-notif', function() {
+    // Xóa hết notification cũ (test data)
+    \Illuminate\Support\Facades\DB::table('notifications')->delete();
+
+    $admin = \App\Models\User::where('role', 'admin')->first();
+    if (!$admin) {
+        return ['error' => 'No admin found'];
+    }
+
+    // Gửi 1 notification test
+    $order = \App\Models\Order::latest()->first();
+    if ($order) {
+        $admin->notify(new \App\Notifications\NewOrderNotification($order));
+    }
+
+    // Đọc lại
+    $notifications = \Illuminate\Support\Facades\DB::table('notifications')->get();
+    return [
+        'admin' => ['id' => $admin->id, 'email' => $admin->email],
+        'notifications_count' => count($notifications),
+        'notifications' => $notifications,
+    ];
 });
 
 // Protected Routes
@@ -30,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // User Orders
     Route::get('/user/orders', [\App\Http\Controllers\Api\OrderController::class, 'getUserOrders']);
+    Route::post('/orders/{id}/cancel', [\App\Http\Controllers\Api\OrderController::class, 'cancel']);
 
     // Favorites
     Route::get('/favorites', [\App\Http\Controllers\Api\FavoriteController::class, 'index']);

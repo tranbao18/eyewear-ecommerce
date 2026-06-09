@@ -24,6 +24,23 @@ class OrderResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    public static function getNavigationBadge(): ?string
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return null;
+        }
+        $count = $user->unreadNotifications()
+            ->where('data->format', 'filament')
+            ->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return 'danger';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return OrderForm::configure($schema);

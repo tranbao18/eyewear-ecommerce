@@ -20,6 +20,8 @@ class CategoriesTable
                     ->searchable(),
                 TextColumn::make('slug')
                     ->searchable(),
+                \Filament\Tables\Columns\ToggleColumn::make('is_active')
+                    ->label('Hoạt động'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

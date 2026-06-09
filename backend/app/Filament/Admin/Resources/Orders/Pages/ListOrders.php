@@ -16,4 +16,17 @@ class ListOrders extends ListRecords
             CreateAction::make(),
         ];
     }
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        // Đánh dấu tất cả thông báo đơn hàng là đã đọc khi admin truy cập trang Orders
+        $user = auth()->user();
+        if ($user) {
+            $user->unreadNotifications()
+                ->where('data->format', 'filament')
+                ->update(['read_at' => now()]);
+        }
+    }
 }

@@ -39,6 +39,20 @@ class ProductController extends Controller
             $query->where('price', '<=', $request->max_price);
         }
 
+        // Sorting
+        if ($request->has('sort')) {
+            $sort = $request->sort;
+            if ($sort === 'price_asc') {
+                $query->orderBy('price', 'asc');
+            } elseif ($sort === 'price_desc') {
+                $query->orderBy('price', 'desc');
+            } elseif ($sort === 'newest') {
+                $query->orderBy('created_at', 'desc');
+            }
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
         $products = $query->paginate(12);
 
         return response()->json([
