@@ -10,7 +10,10 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'brand'])->where('is_active', true);
+        $query = Product::with(['category', 'brand'])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
+            ->where('is_active', true);
 
         // Filter by category slug
         if ($request->has('category')) {
@@ -69,7 +72,12 @@ class ProductController extends Controller
             'brand', 
             'galleries', 
             'variants.attributeValues.attribute'
-        ])->where('slug', $slug)->where('is_active', true)->first();
+        ])
+        ->withAvg('reviews', 'rating')
+        ->withCount('reviews')
+        ->where('slug', $slug)
+        ->where('is_active', true)
+        ->first();
 
         if (!$product) {
             return response()->json([

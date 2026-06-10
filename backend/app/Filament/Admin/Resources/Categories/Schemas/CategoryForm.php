@@ -25,7 +25,9 @@ class CategoryForm
                     ->default(true)
                     ->required(),
                 FileUpload::make('image')
-                    ->image(),
+                    ->image()
+                    ->disk('public')
+                    ->directory('categories'),
                 Textarea::make('description')
                     ->columnSpanFull(),
             ]);

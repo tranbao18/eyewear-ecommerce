@@ -123,6 +123,11 @@ class OrderController extends Controller
                 'discount_amount' => $discountAmount,
             ]);
 
+            $order->statusHistories()->create([
+                'status' => 'pending',
+                'note' => 'Đơn hàng được tạo thành công'
+            ]);
+
             // 5. Create Order Items and decrease stock
             foreach ($orderItemsData as $itemData) {
                 $order->items()->create($itemData);
@@ -193,7 +198,7 @@ class OrderController extends Controller
 
     public function show($id)
     {
-        $order = Order::with(['items.product', 'items.variant.attributeValues.attribute'])->findOrFail($id);
+        $order = Order::with(['items.product', 'items.variant.attributeValues.attribute', 'statusHistories'])->findOrFail($id);
         
         $subTotal = $order->total_amount + $order->discount_amount;
         
@@ -209,6 +214,7 @@ class OrderController extends Controller
             'customer_phone' => $order->customer_phone,
             'customer_email' => $order->customer_email,
             'created_at' => $order->created_at,
+            'status_histories' => $order->statusHistories,
             'items' => $order->items->map(function ($item) {
                 $variantName = $item->variant_name;
                 if (!$variantName && $item->variant) {
@@ -277,6 +283,11 @@ class OrderController extends Controller
 
         $order->status = 'cancelled';
         $order->save();
+
+        $order->statusHistories()->create([
+            'status' => 'cancelled',
+            'note' => 'Khách hàng hủy đơn'
+        ]);
 
         try {
             Mail::to($order->customer_email)->queue(new \App\Mail\OrderCancelledMail($order));

@@ -6,10 +6,14 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\PaymentController;
 
 // Authentication
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+// MoMo IPN
+Route::post('/payment/momo-ipn', [PaymentController::class, 'momoIpn']);
 
 // Products
 Route::get('/products', [ProductController::class, 'index']);
@@ -65,7 +69,23 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle']);
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
 
+// Reviews
+Route::get('/products/{id}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'index']);
+Route::prefix('payment')->group(function () {
+    Route::post('/momo/create/{orderId}', [PaymentController::class, 'createMomoPayment'])->middleware('auth:sanctum');
+});
+Route::post('/products/{id}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'store'])->middleware('auth:sanctum');
+
 // Checkout & Cart
 Route::post('/orders', [\App\Http\Controllers\Api\OrderController::class, 'store']);
 Route::get('/orders/{id}', [\App\Http\Controllers\Api\OrderController::class, 'show']);
 Route::post('/coupons/apply', [\App\Http\Controllers\Api\CouponController::class, 'apply']);
+
+Route::get('/debug-ini', function() {
+    return [
+        'upload_max_filesize' => ini_get('upload_max_filesize'),
+        'post_max_size' => ini_get('post_max_size'),
+        'categories' => \App\Models\Category::latest()->get()
+    ];
+});
+
