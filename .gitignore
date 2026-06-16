@@ -1,4 +1,5 @@
-/history/
-/.vscode/
-/.idea/
-.env
+# Bỏ qua tất cả thư mục node_modules ở bất kỳ đâu trong dự án
+node_modules/
+
+# Bỏ qua file build của Next.js trong frontend
+frontend/.next/
