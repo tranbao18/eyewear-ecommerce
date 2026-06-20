@@ -14,6 +14,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
+  const orderIdParam = searchParams.get('orderId');
   
   const { user, isAuthenticated, logout, setUser } = useUserStore();
   const [isMounted, setIsMounted] = useState(false);
@@ -23,7 +24,16 @@ export default function ProfilePage() {
     if (tabParam && ['info', 'orders', 'wishlist'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
-  }, [tabParam]);
+    if (orderIdParam) {
+      setActiveTab('orders');
+      setSelectedOrderId(parseInt(orderIdParam));
+      setIsLoadingOrderDetails(true);
+      api.get(`/orders/${orderIdParam}`)
+        .then(res => setSelectedOrderData(res.data))
+        .catch(console.error)
+        .finally(() => setIsLoadingOrderDetails(false));
+    }
+  }, [tabParam, orderIdParam]);
   
   // Tab 1: Info states
   const [isEditingInfo, setIsEditingInfo] = useState(false);

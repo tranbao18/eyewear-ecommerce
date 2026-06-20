@@ -196,7 +196,7 @@ export default function ProductReviews({ productId }: { productId: number }) {
                     </div>
                   </div>
                   {review.comment && (
-                    <p className="text-gray-600 text-sm mt-3 ml-13 leading-relaxed pl-13">
+                    <p className="text-gray-600 text-md mt-3 leading-relaxed">
                       {review.comment}
                     </p>
                   )}

@@ -72,7 +72,7 @@ export default function CheckoutSuccessPage() {
 
         <div className="mt-8 space-y-4">
           <Link
-            href={`/profile/orders/${orderId}`}
+            href={`/profile?tab=orders&orderId=${orderId}`}
             className="w-full flex items-center justify-center gap-2 px-6 py-4 border border-transparent text-sm font-bold rounded-xl text-white bg-black hover:bg-gray-800 transition-colors uppercase tracking-wider"
           >
             <ShoppingBag className="w-5 h-5" />
