@@ -560,6 +560,12 @@ export default function ProfilePage() {
                                 <span>-{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedOrderData.discount_amount)}</span>
                               </div>
                             )}
+                            <div className="flex justify-between text-gray-600">
+                              <span>Phí vận chuyển</span>
+                              <span className={`font-medium ${selectedOrderData.shipping_fee === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                                {selectedOrderData.shipping_fee === 0 ? 'Miễn phí' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedOrderData.shipping_fee)}
+                              </span>
+                            </div>
                             <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-100">
                               <span className="text-gray-900 font-bold uppercase tracking-wider text-xs">Tổng thanh toán</span>
                               <span className="text-xl font-black text-black">

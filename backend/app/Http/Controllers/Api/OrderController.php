@@ -90,9 +90,19 @@ class OrderController extends Controller
             }
         }
 
-        $dbTotal = max(0, $dbSubTotal - $discountAmount);
+        // 3. Calculate Shipping Fee
+        $shippingFee = 0;
+        if (($dbSubTotal - $discountAmount) < 500000) {
+            if ($request->province === 'Thành phố Hồ Chí Minh') {
+                $shippingFee = 40000;
+            } else {
+                $shippingFee = 50000;
+            }
+        }
 
-        // 3. Compare with frontend total (allowing small float precision differences, e.g. < 1.0)
+        $dbTotal = max(0, $dbSubTotal - $discountAmount) + $shippingFee;
+
+        // 4. Compare with frontend total (allowing small float precision differences, e.g. < 1.0)
         if (abs($dbTotal - $request->frontend_total) > 1.0) {
             return response()->json([
                 'message' => 'Dữ liệu giá đã thay đổi hoặc không hợp lệ. Vui lòng tải lại trang.',
@@ -103,14 +113,14 @@ class OrderController extends Controller
 
         DB::beginTransaction();
         try {
-            // 4. Create Order
+            // 5. Create Order
             $shippingAddress = $request->specific_address . ', ' . $request->ward . ', ' . $request->district . ', ' . $request->province;
 
             $order = Order::create([
                 'user_id' => $user ? $user->id : null,
                 'total_amount' => $dbTotal,
                 'status' => 'pending',
-                'payment_method' => 'cod',
+                'payment_method' => $request->payment_method ?? 'cod',
                 'customer_name' => $request->customer_name,
                 'customer_phone' => $request->customer_phone,
                 'customer_email' => $request->customer_email,
@@ -121,6 +131,7 @@ class OrderController extends Controller
                 'shipping_address' => $shippingAddress, // full address legacy
                 'coupon_code' => $coupon ? $coupon->code : null,
                 'discount_amount' => $discountAmount,
+                'shipping_fee' => $shippingFee,
             ]);
 
             $order->statusHistories()->create([
@@ -128,7 +139,7 @@ class OrderController extends Controller
                 'note' => 'Đơn hàng được tạo thành công'
             ]);
 
-            // 5. Create Order Items and decrease stock
+            // 6. Create Order Items and decrease stock
             foreach ($orderItemsData as $itemData) {
                 $order->items()->create($itemData);
 
@@ -147,12 +158,12 @@ class OrderController extends Controller
                 }
             }
 
-            // 6. Update Coupon usage
+            // 7. Update Coupon usage
             if ($coupon) {
                 $coupon->increment('used_count');
             }
 
-            // 7. Save address to user if requested
+            // 8. Save address to user if requested
             if ($user && $request->save_address) {
                 $user->update([
                     'phone' => $request->customer_phone,
@@ -200,7 +211,7 @@ class OrderController extends Controller
     {
         $order = Order::with(['items.product', 'items.variant.attributeValues.attribute', 'statusHistories'])->findOrFail($id);
         
-        $subTotal = $order->total_amount + $order->discount_amount;
+        $subTotal = $order->total_amount + $order->discount_amount - $order->shipping_fee;
         
         $formattedOrder = [
             'id' => $order->id,
@@ -208,6 +219,7 @@ class OrderController extends Controller
             'total_amount' => $order->total_amount,
             'sub_total' => $subTotal,
             'discount_amount' => $order->discount_amount,
+            'shipping_fee' => $order->shipping_fee,
             'coupon_code' => $order->coupon_code,
             'shipping_address' => $order->shipping_address,
             'customer_name' => $order->customer_name,
@@ -246,13 +258,14 @@ class OrderController extends Controller
             ->get();
 
         $formattedOrders = $orders->map(function ($order) {
-            $subTotal = $order->total_amount + $order->discount_amount;
+            $subTotal = $order->total_amount + $order->discount_amount - $order->shipping_fee;
             return [
                 'id' => $order->id,
                 'status' => $order->status,
                 'total_amount' => $order->total_amount,
                 'sub_total' => $subTotal,
                 'discount_amount' => $order->discount_amount,
+                'shipping_fee' => $order->shipping_fee,
                 'coupon_code' => $order->coupon_code,
                 'shipping_address' => $order->shipping_address,
                 'created_at' => $order->created_at,

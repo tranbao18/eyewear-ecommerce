@@ -20,12 +20,12 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Đơn hàng này đã được thanh toán'], 400);
         }
 
-        $endpoint = "https://test-payment.momo.vn/v2/gateway/api/create";
-        $partnerCode = "MOMOBKUN20180529";
-        $accessKey = "klm05TvNCzjOa864";
-        $secretKey = "at67qH6mk8w5Y1nAwMovdzZaYpSTh0Mv";
-        $returnUrl = "http://localhost:3000/checkout/success";
-        $notifyUrl = "http://localhost:8000/api/payment/momo-ipn";
+        $endpoint = env('MOMO_ENDPOINT', 'https://test-payment.momo.vn/v2/gateway/api/create');
+        $partnerCode = env('MOMO_PARTNER_CODE');
+        $accessKey = env('MOMO_ACCESS_KEY');
+        $secretKey = env('MOMO_SECRET_KEY');
+        $returnUrl = env('MOMO_RETURN_URL', 'http://localhost:3000/checkout/success');
+        $notifyUrl = env('APP_URL', 'http://localhost:8000') . '/api/payment/momo-ipn';
 
         $orderInfo = "Thanh toan don hang #" . $order->id;
         $amount = (string) (int) $order->total_amount;
@@ -56,6 +56,22 @@ class PaymentController extends Controller
             'requestType' => $requestType,
             'signature' => $signature
         );
+
+        // Chế độ Mock (Giả lập MoMo) để test luồng
+        if (env('MOMO_MOCK_MODE', true)) { // Đặt mặc định true để test qua màn
+            // Tự động cập nhật order sang paid (Giả lập IPN)
+            $order->payment_status = 'paid';
+            $order->save();
+
+            // Tạo URL trả về frontend với resultCode = 0 (Thành công)
+            $mockPayUrl = $returnUrl . "?partnerCode=" . $partnerCode . "&orderId=" . $orderIdMomo . "&requestId=" . $requestId . "&amount=" . $amount . "&orderInfo=" . urlencode($orderInfo) . "&orderType=momo_wallet&transId=123456789&resultCode=0&message=Successful.&payType=qr&responseTime=" . time() . "&extraData=" . $extraData;
+
+            return response()->json([
+                'success' => true,
+                'payment_url' => $mockPayUrl,
+                'is_mock' => true
+            ]);
+        }
 
         $result = $this->execPostRequest($endpoint, json_encode($data));
         $jsonResult = json_decode($result, true);

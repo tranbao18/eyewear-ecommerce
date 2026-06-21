@@ -129,7 +129,9 @@ function ThankYouContent() {
               )}
               <div className="flex justify-between text-gray-600">
                 <span>Phí vận chuyển</span>
-                <span className="font-medium text-green-600">Miễn phí</span>
+                <span className={`font-medium ${orderData.shipping_fee === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                  {orderData.shipping_fee === 0 ? 'Miễn phí' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(orderData.shipping_fee)}
+                </span>
               </div>
               <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-200">
                 <span className="text-gray-900 font-bold uppercase tracking-wider text-sm">Tổng thanh toán</span>

@@ -13,7 +13,7 @@ class Order extends Model
         'user_id', 'total_amount', 'status', 'payment_method', 'payment_status',
         'customer_name', 'customer_phone', 'customer_email',
         'shipping_address', 'province', 'district', 'ward', 'specific_address',
-        'coupon_code', 'discount_amount'
+        'coupon_code', 'discount_amount', 'shipping_fee'
     ];
 
     public function user()

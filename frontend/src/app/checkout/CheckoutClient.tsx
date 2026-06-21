@@ -137,7 +137,17 @@ export default function CheckoutClient() {
   if (!isMounted || items.length === 0) return null;
 
   const subtotal = getTotalPrice();
-  const total = Math.max(0, subtotal - discountAmount);
+  
+  let shippingFee = 0;
+  if (subtotal - discountAmount < 500000) {
+    if (provinceName === 'Thành phố Hồ Chí Minh') {
+      shippingFee = 40000;
+    } else {
+      shippingFee = 50000;
+    }
+  }
+  
+  const total = Math.max(0, subtotal - discountAmount) + shippingFee;
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -429,7 +439,9 @@ export default function CheckoutClient() {
             )}
             <div className="flex justify-between text-gray-600">
               <span>Phí vận chuyển</span>
-              <span className="font-semibold text-green-600">Miễn phí</span>
+              <span className={`font-semibold ${shippingFee === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                {shippingFee === 0 ? 'Miễn phí' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(shippingFee)}
+              </span>
             </div>
           </div>
 
